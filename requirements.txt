@@ -1,0 +1,15 @@
+streamlit
+python-dotenv
+
+google-generativeai
+langchain
+langchain-community
+langchain-google-genai
+
+faiss-cpu
+pypdf
+
+datasets
+ragas
+
+sentence-transformers
