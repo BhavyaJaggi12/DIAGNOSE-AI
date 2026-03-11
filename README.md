@@ -65,6 +65,10 @@ Evaluate the RAG pipeline using **RAGAS metrics**:
 - Datasets
 
 ---
+# ⚙️ Installation
 
-# 🏗 Project Architecture
-****
+### 1️⃣ Clone the repository
+
+```bash
+git clone https://github.com/BhavyaJaggi12/DIAGNOSE-AI.git
+cd DIAGNOSE-AI
