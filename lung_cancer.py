@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
@@ -17,7 +17,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import confusion_matrix, classification_report, roc_curve, roc_auc_score
 
 # ============================================
-# 1️⃣ LOAD DATA
+# LOAD DATA
 # ============================================
 
 DATA_PATH = "data/raw/survey lung cancer.csv"
@@ -33,7 +33,7 @@ print("\nFirst 5 Rows:\n")
 print(df.head())
 
 # ============================================
-# 2️⃣ DATASET DESCRIPTION
+# DATASET DESCRIPTION
 # ============================================
 
 print("\n================ DATASET DESCRIPTION ================\n")
@@ -43,7 +43,7 @@ print("\nClass Distribution:\n")
 print(df.iloc[:, -1].value_counts())
 
 # ============================================
-# 3️⃣ PREPROCESSING
+# PREPROCESSING
 # ============================================
 
 # Encode categorical features
@@ -61,7 +61,7 @@ X = df.drop(target_col, axis=1)
 y = df[target_col]
 
 # ============================================
-# 4️⃣ DEFINE MODELS
+# DEFINE MODELS
 # ============================================
 
 SEED = 42
@@ -88,7 +88,7 @@ models = {
 }
 
 # ============================================
-# 5️⃣ 5-FOLD CROSS VALIDATION
+# 5-FOLD CROSS VALIDATION
 # ============================================
 
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
@@ -98,38 +98,52 @@ print("\n================ MODEL RESULTS (5-FOLD CV) ================\n")
 
 results = {}
 
+csv_results = []
+
 for name, model in models.items():
     scores = cross_validate(model, X, y, cv=cv, scoring=scoring)
 
     results[name] = {metric: np.mean(scores[f"test_{metric}"]) for metric in scoring}
+
+    row_data = {"Model Name": name}
+    for metric in scoring:
+        row_data[metric.capitalize()] = results[name][metric]
+    csv_results.append(row_data)
 
     print(name)
     for metric in scoring:
         print(f"  {metric}: {results[name][metric]:.4f}")
     print("")
 
+results_df = pd.DataFrame(csv_results)
+results_df = results_df.sort_values(by="Accuracy", ascending=False)
+results_df.to_csv("lung_cancer_model_results.csv", index=False)
+print("Model results saved successfully to lung_cancer_model_results.csv")
+
 # ============================================
-# 6️⃣ TRAIN BEST MODEL (Random Forest Example)
+# TRAIN BEST MODEL (Random Forest Example)
 # ============================================
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=SEED, stratify=y)
 
 best_model = RandomForestClassifier(n_estimators=100, random_state=SEED)
-best_model.fit(X, y)
+best_model.fit(X_train, y_train)
 
-y_pred = best_model.predict(X)
-y_prob = best_model.predict_proba(X)[:, 1]
+y_pred = best_model.predict(X_test)
+y_prob = best_model.predict_proba(X_test)[:, 1]
 
 print("\n================ CONFUSION MATRIX ================\n")
-print(confusion_matrix(y, y_pred))
+print(confusion_matrix(y_test, y_pred))
 
 print("\nClassification Report:\n")
-print(classification_report(y, y_pred))
+print(classification_report(y_test, y_pred))
 
 # ============================================
-# 7️⃣ ROC CURVE
+# ROC CURVE
 # ============================================
 
-fpr, tpr, _ = roc_curve(y, y_prob)
-auc_score = roc_auc_score(y, y_prob)
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+auc_score = roc_auc_score(y_test, y_prob)
 
 plt.figure()
 plt.plot(fpr, tpr)
@@ -137,6 +151,6 @@ plt.plot([0, 1], [0, 1])
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
 plt.title("ROC Curve - Lung Cancer Dataset")
-plt.show()
+plt.savefig("lung_cancer_roc_curve.png")
 
 print("\nROC-AUC Score:", round(auc_score, 4))
