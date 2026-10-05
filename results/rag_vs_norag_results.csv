@@ -1,0 +1,8 @@
+Question Category,RAG Response Behaviour,No-RAG Response Behaviour
+Factual extraction,Retrieved and stated information from the clinical document.,Requested the missing clinical history or document context.
+Clinical interpretation,Provided document-grounded interpretations and supporting clinical factors.,Requested the clinical vignette or patient history before responding.
+Temporal information,"Retrieved documented dates, durations, and events from the clinical document.",Reported that the relevant patient case information was unavailable.
+Numerical values,Retrieved numerical clinical measurements from the document.,Reported that the required patient data were unavailable.
+Negative findings,Retrieved the documented absence of diabetes.,Reported that the referenced document or patient information was unavailable.
+Conflicting information,Identified the conflicting statements regarding the timing of hypertension diagnosis.,Reported that the referenced document was unavailable.
+Insufficient evidence,Recognized when the clinical document did not provide the requested information.,Reported that the required medical information was unavailable.

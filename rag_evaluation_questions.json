@@ -1,0 +1,74 @@
+[
+    {
+        "question_id": 1,
+        "category": "Factual extraction",
+        "question": "What are the patient's past surgical procedures according to the medical history?",
+        "ground_truth": "Total abdominal hysterectomy and bilateral oophorectomy for uterine fibroids in 1994, and a bunionectomy in 1998."
+    },
+    {
+        "question_id": 2,
+        "category": "Factual extraction",
+        "question": "What medication does the patient occasionally take for her headaches?",
+        "ground_truth": "OTC ibuprofen (Advil)."
+    },
+    {
+        "question_id": 3,
+        "category": "Clinical interpretation",
+        "question": "According to the assessment, what is the most likely diagnosis for the patient's chest pain and what documented factors support this?",
+        "ground_truth": "Angina pectoris. Supported by a family history of early ASCVD, hypertension, and early surgical menopause."
+    },
+    {
+        "question_id": 4,
+        "category": "Clinical interpretation",
+        "question": "Why does the assessment state that a pulmonary infection is less likely to be the cause of her chest pain?",
+        "ground_truth": "The absence of fever, cough, or abnormal pulmonary examination findings make a pulmonary infection less likely."
+    },
+    {
+        "question_id": 5,
+        "category": "Temporal information",
+        "question": "How long did the episode of chest pain last that awakened the patient from sleep on the evening of her admission?",
+        "ground_truth": "30 minutes."
+    },
+    {
+        "question_id": 6,
+        "category": "Temporal information",
+        "question": "How long did the initial episode of chest pain last that occurred while she was working in her garden?",
+        "ground_truth": "Approximately 5 to 10 minutes."
+    },
+    {
+        "question_id": 7,
+        "category": "Numerical values",
+        "question": "What was the patient's blood pressure recorded during the physical examination?",
+        "ground_truth": "168/98."
+    },
+    {
+        "question_id": 8,
+        "category": "Numerical values",
+        "question": "What is the measured jugular venous pressure?",
+        "ground_truth": "8 cm with the patient at 45 degrees."
+    },
+    {
+        "question_id": 9,
+        "category": "Negative findings",
+        "question": "Does the patient have a history of diabetes according to the document?",
+        "ground_truth": "No, she does not have diabetes."
+    },
+    {
+        "question_id": 10,
+        "category": "Conflicting information",
+        "question": "What conflicting information does the document provide regarding when the patient was diagnosed with hypertension?",
+        "ground_truth": "The History of Present Illness section says she was diagnosed with HTN 3 years ago, but the Medical History section says she was diagnosed with hypertension in 1998."
+    },
+    {
+        "question_id": 11,
+        "category": "Insufficient evidence",
+        "question": "What were the exact results of the patient's baseline EKG?",
+        "ground_truth": "The available clinical document does not provide sufficient information to answer the question. It only mentions planning to schedule a baseline EKG."
+    },
+    {
+        "question_id": 12,
+        "category": "Insufficient evidence",
+        "question": "What is the patient's current cholesterol level according to the physical examination?",
+        "ground_truth": "The available clinical document does not provide sufficient information to answer the question."
+    }
+]

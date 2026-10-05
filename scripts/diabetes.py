@@ -26,8 +26,10 @@ from sklearn.metrics import (
     accuracy_score,
     f1_score,
     precision_score,
-    recall_score
+    recall_score,
+    brier_score_loss
 )
+from sklearn.calibration import calibration_curve
 
 warnings.filterwarnings('ignore')
 
@@ -139,8 +141,22 @@ model_configurations = {
 
 print("Running Deterministic GridSearchCV across all pipelines...\n")
 
+from sklearn.metrics import make_scorer
+
+def calc_specificity(y_true, y_pred):
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+    return tn / (tn + fp) if (tn + fp) > 0 else 0.0
+
+scoring_dict = {
+    "accuracy": "accuracy",
+    "precision": "precision",
+    "recall": "recall",
+    "specificity": make_scorer(calc_specificity),
+    "f1": "f1"
+}
+
 results = []
-best_overall_acc = 0
+best_overall_cv_acc = -np.inf
 best_overall_model = None
 best_model_name = ""
 
@@ -158,7 +174,8 @@ for name, config in model_configurations.items():
         pipeline, 
         config["params"], 
         cv=cv_strict, 
-        scoring="accuracy", 
+        scoring=scoring_dict, 
+        refit="accuracy",
         n_jobs=-1
     )
     
@@ -167,8 +184,22 @@ for name, config in model_configurations.items():
     
     # Extract structural CV metrics
     best_idx = grid_search.best_index_
-    cv_mean = grid_search.cv_results_['mean_test_score'][best_idx]
-    cv_std = grid_search.cv_results_['std_test_score'][best_idx]
+    cv_mean_acc = grid_search.cv_results_['mean_test_accuracy'][best_idx]
+    cv_std_acc = grid_search.cv_results_['std_test_accuracy'][best_idx]
+    cv_mean_prec = grid_search.cv_results_['mean_test_precision'][best_idx]
+    cv_std_prec = grid_search.cv_results_['std_test_precision'][best_idx]
+    cv_mean_rec = grid_search.cv_results_['mean_test_recall'][best_idx]
+    cv_std_rec = grid_search.cv_results_['std_test_recall'][best_idx]
+    cv_mean_spec = grid_search.cv_results_['mean_test_specificity'][best_idx]
+    cv_std_spec = grid_search.cv_results_['std_test_specificity'][best_idx]
+    cv_mean_f1 = grid_search.cv_results_['mean_test_f1'][best_idx]
+    cv_std_f1 = grid_search.cv_results_['std_test_f1'][best_idx]
+
+    print(f"  CV Accuracy: {cv_mean_acc:.4f} ± {cv_std_acc:.4f}")
+    print(f"  CV Precision: {cv_mean_prec:.4f} ± {cv_std_prec:.4f}")
+    print(f"  CV Recall (Sensitivity): {cv_mean_rec:.4f} ± {cv_std_rec:.4f}")
+    print(f"  CV Specificity: {cv_mean_spec:.4f} ± {cv_std_spec:.4f}")
+    print(f"  CV F1-Score: {cv_mean_f1:.4f} ± {cv_std_f1:.4f}")
     
     # Predict on Test Set
     y_pred = best_estimator.predict(X_test)
@@ -189,25 +220,36 @@ for name, config in model_configurations.items():
     
     results.append({
         "Model Name": name,
-        "CV Mean Accuracy": cv_mean,
-        "CV Std Dev": cv_std,
+        "CV Mean Accuracy": cv_mean_acc,
+        "CV Std Dev Accuracy": cv_std_acc,
+        "CV Mean Precision": cv_mean_prec,
+        "CV Std Dev Precision": cv_std_prec,
+        "CV Mean Recall": cv_mean_rec,
+        "CV Std Dev Recall": cv_std_rec,
+        "CV Mean Specificity": cv_mean_spec,
+        "CV Std Dev Specificity": cv_std_spec,
+        "CV Mean F1-Score": cv_mean_f1,
+        "CV Std Dev F1-Score": cv_std_f1,
         "Test Accuracy": acc,
-        "Precision": precision,
-        "Recall (Sensitivity)": sensitivity,
-        "Specificity": specificity,
-        "F1-Score": f1,
-        "ROC-AUC": roc_auc
+        "Test Precision": precision,
+        "Test Recall (Sensitivity)": sensitivity,
+        "Test Specificity": specificity,
+        "Test F1-Score": f1,
+        "Test ROC-AUC": roc_auc
     })
     
-    # Track overall best model mathematically (Highest Test Accuracy resolver)
-    if acc > best_overall_acc:
-        best_overall_acc = acc
+    # Track overall best model mathematically (Highest CV Accuracy resolver)
+    if cv_mean_acc > best_overall_cv_acc:
+        best_overall_cv_acc = cv_mean_acc
         best_overall_model = best_estimator
         best_model_name = name
 
 # ============================================
 # BEST MODEL LOGIC AND ROC GENERATION
 # ============================================
+
+print(f"Selected model based on 5-fold CV accuracy: {best_model_name}")
+print(f"Best CV accuracy: {best_overall_cv_acc:.4f}")
 
 print(f"\n================ EVALUATING ABSOLUTE BEST: {best_model_name} ================\n")
 
@@ -231,6 +273,24 @@ plt.savefig("roc_curve.png")
 print("ROC Curve generated.")
 
 # ============================================
+# CALIBRATION ANALYSIS
+# ============================================
+brier_score = brier_score_loss(y_test, y_prob_best)
+print(f"\nBrier Score: {brier_score:.4f}")
+
+prob_true, prob_pred = calibration_curve(y_test, y_prob_best, n_bins=10, strategy="uniform")
+
+plt.figure()
+plt.plot(prob_pred, prob_true, marker='o', label=best_model_name)
+plt.plot([0, 1], [0, 1], linestyle="--", color="black", label="Perfectly Calibrated")
+plt.xlabel("Mean Predicted Probability")
+plt.ylabel("Observed Proportion")
+plt.title(f"Calibration Curve - Diabetes {best_model_name}")
+plt.legend()
+plt.savefig("diabetes_calibration_curve.png", dpi=300)
+print("Calibration curve generated: diabetes_calibration_curve.png")
+
+# ============================================
 # ERROR ANALYSIS MODULE
 # ============================================
 
@@ -250,6 +310,53 @@ error_df['Predicted_Outcome'] = y_pred_best[misclassified_indices]
 # Dump error records explicitly for auditing
 error_df.to_csv("misclassified.csv", index=False)
 print(f"Misclassified samples logged successfully at: misclassified.csv ({len(error_df)} records)")
+
+# ============================================
+# SUBGROUP ANALYSIS
+# ============================================
+
+print("\n================ SUBGROUP ANALYSIS ================")
+
+def calculate_subgroup_metrics(y_true, y_pred, y_prob):
+    n = len(y_true)
+    if n == 0 or len(np.unique(y_true)) < 2:
+        return {"N": n, "Accuracy": "Unavailable", "Precision": "Unavailable", "Recall": "Unavailable", "Specificity": "Unavailable", "F1": "Unavailable"}
+    
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, zero_division=0)
+    rec = recall_score(y_true, y_pred, zero_division=0)
+    
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+    spec = tn / (tn + fp) if (tn + fp) > 0 else 0
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    
+    return {"N": n, "Accuracy": f"{acc:.4f}", "Precision": f"{prec:.4f}", "Recall": f"{rec:.4f}", "Specificity": f"{spec:.4f}", "F1": f"{f1:.4f}"}
+
+# We need the original Age variable from X_test. The preprocessor hasn't touched X_test yet because the pipeline fits X_train.
+# Wait, X_test is already split but not scaled yet in X_test since scaling happens in the pipeline.
+# So X_test["Age"] is the original Age.
+median_age = df["Age"].median()
+print(f"Age median split threshold: {median_age}")
+
+age_group1_mask = X_test["Age"] <= median_age
+age_group2_mask = X_test["Age"] > median_age
+
+sg_results = []
+
+res1 = calculate_subgroup_metrics(y_test[age_group1_mask], y_pred_best[age_group1_mask], y_prob_best[age_group1_mask])
+sg_results.append({"Dataset": "Diabetes", "Subgroup Type": "Age", "Subgroup": f"<= {median_age}", **res1})
+res2 = calculate_subgroup_metrics(y_test[age_group2_mask], y_pred_best[age_group2_mask], y_prob_best[age_group2_mask])
+sg_results.append({"Dataset": "Diabetes", "Subgroup Type": "Age", "Subgroup": f"> {median_age}", **res2})
+
+# For Sex: Dataset is exclusively female (Pima Indians)
+res_f = calculate_subgroup_metrics(y_test, y_pred_best, y_prob_best)
+sg_results.append({"Dataset": "Diabetes", "Subgroup Type": "Sex", "Subgroup": "Female", **res_f})
+sg_results.append({"Dataset": "Diabetes", "Subgroup Type": "Sex", "Subgroup": "Male", "N": 0, "Accuracy": "Unavailable", "Precision": "Unavailable", "Recall": "Unavailable", "Specificity": "Unavailable", "F1": "Unavailable"})
+
+sg_df = pd.DataFrame(sg_results)
+sg_df.to_csv("diabetes_subgroup_results.csv", index=False)
+print("Subgroup analysis saved to diabetes_subgroup_results.csv")
+print(sg_df.to_string(index=False))
 
 # ============================================
 # CONSOLIDATED DATAFRAME EXPORT
